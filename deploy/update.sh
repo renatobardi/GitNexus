@@ -58,8 +58,26 @@ sudo -u gitnexus npx node-gyp rebuild
 echo "==> [5/7] Compilando LadybugDB do source (requer GCC 13 / C++20)..."
 cd "$LBUG_SOURCE"
 sudo rm -rf build
-sudo -u gitnexus NODE_PATH="${APP_DIR}/gitnexus/node_modules" CXX="${GCC13}/g++" CC="${GCC13}/gcc" make nodejs NUM_THREADS=4
-sudo -u gitnexus cp "$LBUG_BUILT" "$LBUG_DEST"
+
+# cmake-js não inclui napi.h (node-addon-api) automaticamente quando invocado
+# via Makefile — passar CMAKE_JS_INC explicitamente com node headers + napi path
+NODE_VER=$(sudo -u gitnexus node --version | sed 's/v//')
+NODE_INC="/home/gitnexus/.cmake-js/node-arm64/v${NODE_VER}/include/node"
+NAPI_INC="${APP_DIR}/gitnexus/node_modules/node-addon-api"
+
+sudo -u gitnexus \
+  CXX="${GCC13}/g++" CC="${GCC13}/gcc" \
+  cmake -B build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_NODEJS=TRUE \
+    "-DCMAKE_JS_INC=${NODE_INC};${NAPI_INC}" \
+    .
+
+sudo -u gitnexus \
+  CXX="${GCC13}/g++" CC="${GCC13}/gcc" \
+  cmake --build build/release --config Release -j4
+
+LBUG_FOUND=$(find build/release -name "lbugjs.node" 2>/dev/null | head -1)
+[ -z "$LBUG_FOUND" ] && { echo "ERROR: lbugjs.node não encontrado após build"; exit 1; }
+sudo -u gitnexus cp "$LBUG_FOUND" "$LBUG_DEST"
 echo "    → lbugjs.node compilado e instalado"
 
 echo "==> [6/7] Compilando TypeScript (gitnexus)..."
