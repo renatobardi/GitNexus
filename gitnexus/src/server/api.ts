@@ -116,6 +116,7 @@ export const createServer = async (port: number, host: string = '127.0.0.1') => 
         || origin.startsWith('http://localhost:')
         || origin.startsWith('http://127.0.0.1:')
         || origin === 'https://gitnexus.vercel.app'
+        || origin === 'https://nexus.oute.pro'
       ) {
         callback(null, true);
       } else {

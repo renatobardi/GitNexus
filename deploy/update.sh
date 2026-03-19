@@ -1,0 +1,83 @@
+#!/bin/bash
+# =============================================================================
+# GitNexus — Atualização da aplicação no servidor Oracle Cloud
+# Executado pelo CI/CD (GitHub Actions) ou manualmente
+# =============================================================================
+set -euo pipefail
+
+APP_DIR=/opt/gitnexus/app
+GCC13=/opt/rh/gcc-toolset-13/root/usr/bin
+SWIFT_BINDING_GYP="${APP_DIR}/gitnexus/node_modules/tree-sitter-swift/binding.gyp"
+LBUG_SOURCE="${APP_DIR}/gitnexus/node_modules/@ladybugdb/core/lbug-source"
+LBUG_BUILT="${LBUG_SOURCE}/tools/nodejs_api/build/lbugjs.node"
+LBUG_DEST="${APP_DIR}/gitnexus/node_modules/@ladybugdb/core/lbugjs.node"
+
+echo "==> [1/7] Atualizando código-fonte..."
+cd "$APP_DIR"
+sudo -u gitnexus git pull origin main
+
+echo "==> [2/7] Instalando dependências (gitnexus)..."
+cd "${APP_DIR}/gitnexus"
+sudo -u gitnexus npm ci --ignore-scripts
+
+echo "==> [3/7] Corrigindo tree-sitter-swift binding.gyp (ARM64)..."
+# O patch script falha com trailing commas — sobrescreve diretamente
+sudo -u gitnexus tee "$SWIFT_BINDING_GYP" > /dev/null << 'BINDEOF'
+{
+  "targets": [
+    {
+      "target_name": "tree_sitter_swift_binding",
+      "dependencies": [
+        "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except"
+      ],
+      "include_dirs": [
+        "src"
+      ],
+      "sources": [
+        "bindings/node/binding.cc",
+        "src/parser.c",
+        "src/scanner.c"
+      ],
+      "cflags_c": [
+        "-std=c11"
+      ]
+    }
+  ]
+}
+BINDEOF
+
+echo "==> [4/7] Compilando native addons para ARM64..."
+cd "${APP_DIR}/gitnexus"
+sudo -u gitnexus npm rebuild
+
+# tree-sitter-kotlin precisa rebuild manual
+echo "    → Recompilando tree-sitter-kotlin..."
+cd "${APP_DIR}/gitnexus/node_modules/tree-sitter-kotlin"
+sudo -u gitnexus npx node-gyp rebuild
+
+echo "==> [5/7] Compilando LadybugDB do source (requer GCC 13 / C++20)..."
+cd "$LBUG_SOURCE"
+sudo rm -rf build
+sudo -u gitnexus CXX="${GCC13}/g++" CC="${GCC13}/gcc" make nodejs NUM_THREADS=4
+sudo -u gitnexus cp "$LBUG_BUILT" "$LBUG_DEST"
+echo "    → lbugjs.node compilado e instalado"
+
+echo "==> [6/7] Compilando TypeScript (gitnexus)..."
+cd "${APP_DIR}/gitnexus"
+sudo -u gitnexus npm run build
+
+echo "==> [6/7] Compilando Web UI (gitnexus-web)..."
+cd "${APP_DIR}/gitnexus-web"
+sudo -u gitnexus npm ci
+sudo -u gitnexus npm run build
+
+echo "==> [7/7] Reiniciando serviço systemd..."
+sudo systemctl restart gitnexus
+sleep 3
+sudo systemctl status gitnexus --no-pager | head -10
+
+echo ""
+echo "=============================================="
+echo "GitNexus atualizado e reiniciado com sucesso!"
+echo "Health check: curl http://localhost:4747/api/repos"
+echo "=============================================="
