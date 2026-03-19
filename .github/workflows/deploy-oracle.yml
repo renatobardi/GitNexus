@@ -32,6 +32,7 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           port: 22
           timeout: 30m
+          command_timeout: 30m
           script: |
             set -euo pipefail
             echo "==> Iniciando deploy em $(date)"
