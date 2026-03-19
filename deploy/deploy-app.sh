@@ -54,7 +54,7 @@ echo "==> [5/7] Compilando LadybugDB do source (requer GCC 13 / C++20)..."
 # O prebuilt requer GLIBC 2.38, Oracle Linux 9 tem 2.34 — compila do source
 LBUG_SOURCE="${APP_DIR}/app/gitnexus/node_modules/@ladybugdb/core/lbug-source"
 cd "$LBUG_SOURCE"
-sudo -u gitnexus CXX="${GCC13}/g++" CC="${GCC13}/gcc" make nodejs NUM_THREADS=4
+sudo -u gitnexus NODE_PATH="${APP_DIR}/app/gitnexus/node_modules" CXX="${GCC13}/g++" CC="${GCC13}/gcc" make nodejs NUM_THREADS=4
 sudo -u gitnexus cp tools/nodejs_api/build/lbugjs.node ../lbugjs.node
 echo "    ✓ LadybugDB compilado com sucesso"
 
