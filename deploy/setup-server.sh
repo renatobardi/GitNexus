@@ -31,9 +31,13 @@ if [ "$PKG_MANAGER" = "apt" ]; then
 else
   sudo dnf update -y
   sudo dnf install -y \
-    curl git python3 make gcc gcc-c++ \
-    nginx certbot python3-certbot-nginx \
+    curl git python3 python3-pip make gcc gcc-c++ cmake \
+    nginx \
     htop tmux net-tools
+  # GCC 13 necessário para compilar LadybugDB (requer C++20 <format>)
+  sudo dnf install -y gcc-toolset-13-gcc-c++
+  # certbot via pip3 (não disponível via dnf no Oracle Linux 9)
+  sudo pip3 install certbot certbot-nginx
 fi
 
 echo "==> [2/5] Instalando Node.js 20 LTS (ARM64 via NodeSource)..."
@@ -74,8 +78,10 @@ else
   sudo service iptables save 2>/dev/null || true
 fi
 
-echo "==> [5/5] Configurando diretório da aplicação para o usuário gitnexus..."
+echo "==> [5/5] Configurando diretório e SELinux..."
 sudo chown -R gitnexus:gitnexus /opt/gitnexus
+# Permite nginx fazer proxy para localhost (Oracle Linux tem SELinux ativo)
+sudo setsebool -P httpd_can_network_connect 1
 
 echo ""
 echo "=============================================="
