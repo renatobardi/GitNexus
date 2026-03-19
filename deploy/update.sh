@@ -58,7 +58,7 @@ sudo -u gitnexus npx node-gyp rebuild
 echo "==> [5/7] Compilando LadybugDB do source (requer GCC 13 / C++20)..."
 cd "$LBUG_SOURCE"
 sudo rm -rf build
-sudo -u gitnexus CXX="${GCC13}/g++" CC="${GCC13}/gcc" make nodejs NUM_THREADS=4
+sudo -u gitnexus NODE_PATH="${APP_DIR}/gitnexus/node_modules" CXX="${GCC13}/g++" CC="${GCC13}/gcc" make nodejs NUM_THREADS=4
 sudo -u gitnexus cp "$LBUG_BUILT" "$LBUG_DEST"
 echo "    → lbugjs.node compilado e instalado"
 
