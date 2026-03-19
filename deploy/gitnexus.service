@@ -1,0 +1,33 @@
+[Unit]
+Description=GitNexus HTTP Server (API REST + MCP StreamableHTTP)
+Documentation=https://github.com/renatobardi/GitNexus
+After=network.target
+
+[Service]
+Type=simple
+User=gitnexus
+Group=gitnexus
+WorkingDirectory=/opt/gitnexus/app
+
+# Inicia o servidor HTTP que expõe a API REST e o MCP over HTTP
+# --host 127.0.0.1: bind apenas local, Nginx faz o proxy externo
+ExecStart=/usr/bin/node gitnexus/dist/cli/index.js serve --port 4747 --host 127.0.0.1
+
+# Reinicia automaticamente em caso de crash (aguarda 5s entre tentativas)
+Restart=always
+RestartSec=5
+
+# Variáveis de ambiente de produção
+Environment=NODE_ENV=production
+
+# Heap generoso para indexação de repos grandes
+# O ARM A1 tem 24GB — 8GB para o Node deixa margem confortável
+Environment=NODE_OPTIONS=--max-old-space-size=8192
+
+# Saída de log vai para journald (acessar com: sudo journalctl -u gitnexus -f)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gitnexus
+
+[Install]
+WantedBy=multi-user.target

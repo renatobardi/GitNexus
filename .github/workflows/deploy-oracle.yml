@@ -1,0 +1,49 @@
+name: Deploy Oracle Cloud ARM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Motivo do deploy manual"
+        required: false
+        default: "Deploy manual"
+
+concurrency:
+  group: deploy-oracle
+  cancel-in-progress: false  # Nunca cancela deploy em andamento
+
+jobs:
+  deploy:
+    name: Deploy → nexus.oute.pro
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.ORACLE_SSH_HOST }}
+          username: ${{ secrets.ORACLE_SSH_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          timeout: 30m
+          script: |
+            set -euo pipefail
+            echo "==> Iniciando deploy em $(date)"
+            cd ${{ secrets.ORACLE_DEPLOY_PATH }}
+            bash deploy/update.sh
+            echo "==> Deploy concluído em $(date)"
+
+      - name: Verificar health check
+        run: |
+          sleep 5
+          curl -sf --retry 5 --retry-delay 3 \
+            https://nexus.oute.pro/api/repos \
+            -o /dev/null \
+            && echo "Health check OK" \
+            || echo "Health check falhou (serviço pode ainda estar subindo)"
