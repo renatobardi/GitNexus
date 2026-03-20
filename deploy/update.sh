@@ -59,16 +59,19 @@ echo "==> [5/7] Compilando LadybugDB do source (requer GCC 13 / C++20)..."
 cd "$LBUG_SOURCE"
 sudo rm -rf build
 
-# cmake-js não inclui napi.h (node-addon-api) automaticamente quando invocado
-# via Makefile — passar CMAKE_JS_INC explicitamente com node headers + napi path
 NODE_VER=$(sudo -u gitnexus node --version | sed 's/v//')
-NODE_INC="/home/gitnexus/.cmake-js/node-arm64/v${NODE_VER}/include/node"
+NODE_CACHE_INC="/home/gitnexus/.cmake-js/node-arm64/v${NODE_VER}/include/node"
 NAPI_INC="${APP_DIR}/gitnexus/node_modules/node-addon-api"
 
+# Estratégia dupla para resolver napi.h:
+# 1) Copiar headers do node-addon-api para o cache do cmake-js (que está em CMAKE_JS_INC)
+#    cmake-js sobrescreve CMAKE_JS_INC mas não remove o que já está no diretório
+[ -d "${NODE_CACHE_INC}" ] && sudo cp "${NAPI_INC}"/*.h "${NODE_CACHE_INC}/" 2>/dev/null || true
+# 2) Adicionar via CMAKE_CXX_FLAGS — cmake-js apenas apenda, nunca sobrescreve
 sudo -u gitnexus \
   CXX="${GCC13}/g++" CC="${GCC13}/gcc" \
   cmake -B build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_NODEJS=TRUE \
-    "-DCMAKE_JS_INC=${NODE_INC};${NAPI_INC}" \
+    "-DCMAKE_CXX_FLAGS=-I${NAPI_INC}" \
     .
 
 sudo -u gitnexus \
